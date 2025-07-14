@@ -1,115 +1,34 @@
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
 const cors = require('cors');
+const authRoutes = require('./routes/auth');
+const ngoRoutes = require('./routes/ngos');
+const donationRoutes = require('./routes/donations');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
-app.use(bodyParser.json());
+
+// Middleware
 app.use(cors());
+app.use(express.json());
 
-mongoose.connect('mongodb://localhost:27017/food-donation', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-});
+// Connect to MongoDB
+mongoose.connect(process.env.MONGODB_URI)
+  .then(() => {
+    console.log('Successfully connected to MongoDB.');
+  })
+  .catch(err => {
+    console.error('!!! MongoDB Connection Error !!!');
+    console.error(`Error Code: ${err.code}`);
+    console.error(`Error Message: ${err.message}`);
+  });
 
-const UserSchema = new mongoose.Schema({
-  name: String,
-  email: String,
-  password: String,
-  role: { type: String, default: 'user' }
-});
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/ngos', ngoRoutes);
+app.use('/api/donations', donationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
-const DonationSchema = new mongoose.Schema({
-  donorName: String,
-  foodType: String,
-  quantity: String,
-  location: String,
-  contact: String,
-  status: { type: String, default: 'Pending' }
-});
-
-const User = mongoose.model('User', UserSchema);
-const Donation = mongoose.model('Donation', DonationSchema);
-
-app.post('/signup', async (req, res) => {
-  const { name, email, password } = req.body;
-
-  try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).send({ message: 'User already exists!' });
-    }
-
-    const user = new User({ name, email, password });
-    await user.save();
-    res.send({ message: 'User registered successfully!' });
-  } catch (error) {
-    res.status(500).send({ message: 'Internal server error' });
-  }
-});
-
-app.post('/signin', async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    const user = await User.findOne({ email, password });
-    if (!user) {
-      return res.status(400).send({ message: 'Invalid credentials' });
-    }
-
-    res.send({ message: 'Sign in successful', user });
-  } catch (error) {
-    res.status(500).send({ message: 'Internal server error' });
-  }
-});
-
-app.post('/donate', async (req, res) => {
-  const { donorName, foodType, quantity, location, contact } = req.body;
-
-  try {
-    const donation = new Donation({ donorName, foodType, quantity, location, contact });
-    await donation.save();
-    res.send({ message: 'Donation added successfully!' });
-  } catch (error) {
-    res.status(500).send({ message: 'Internal server error' });
-  }
-});
-
-app.get('/users', async (req, res) => {
-  const users = await User.find();
-  res.send(users);
-});
-
-app.get('/donations', async (req, res) => {
-  const donations = await Donation.find();
-  res.send(donations);
-});
-
-app.put('/update-donation/:id', async (req, res) => {
-  const { id } = req.params;
-  const { status } = req.body;
-
-  try {
-    const donation = await Donation.findByIdAndUpdate(id, { status });
-    res.send({ message: 'Donation status updated!' });
-  } catch (error) {
-    res.status(500).send({ message: 'Internal server error' });
-  }
-});
-
-app.delete('/delete-donation/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    await Donation.findByIdAndDelete(id);
-    res.send({ message: 'Donation deleted successfully!' });
-  } catch (error) {
-    res.status(500).send({ message: 'Internal server error' });
-  }
-});
-
-app.use(express.static('public'));
-
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`)); 
